@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './AgentConfigPanel.css';
 
-const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
+const AgentConfigPanel = ({ onCreateAgent }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState('custom');
+  const [mode, setMode] = useState('edit'); // 'edit' or 'create'
+  const [existingAgents, setExistingAgents] = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState('agent1'); // 預設的 agent ID
   const [config, setConfig] = useState({
-    agentId: '',
+    agentId: 'agent1', // 預設使用 agent1
     name: '',
     llmProvider: {
-      type: 'openai',
+      type: 'ollama', // 預設使用 Ollama 避免燒錢
       apiKey: '',
-      model: 'gpt-5-mini',
+      model: 'gemma3:4b', // 預設使用較小的模型
       baseURL: 'http://localhost:11434',
       temperature: 0.7,
       maxRetries: 3
@@ -46,11 +49,36 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
     }
   });
 
+  // WebSocket 連接（用於獲取現有 Agent 配置）
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:8080');
+
+    ws.onopen = () => {
+      // 請求當前 Agent 配置
+      ws.send(JSON.stringify({
+        type: 'get_agent_config',
+        agent_id: selectedAgent
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'agent_config' && data.success) {
+        // 載入現有配置
+        setConfig(data.config);
+        setMode('edit');
+      }
+    };
+
+    return () => ws.close();
+  }, [selectedAgent]);
+
   // 預設模板
   const templates = {
     explorer: {
       name: 'Explorer',
-      llmProvider: { type: 'openai', model: 'gpt-5-mini', temperature: 0.8 },
+      llmProvider: { type: 'ollama', model: 'gemma3:4b', temperature: 0.8 },
       personality: {
         behaviorTendencies: { exploration: 90, collection: 40, social: 30, defensive: 20 },
         traits: { cautious: 20, bold: 85, curious: 90, lazy: 10 },
@@ -60,7 +88,7 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
     },
     collector: {
       name: 'Collector',
-      llmProvider: { type: 'ollama', model: 'gemma3:12b', temperature: 0.5 },
+      llmProvider: { type: 'ollama', model: 'gemma3:4b', temperature: 0.5 },
       personality: {
         behaviorTendencies: { exploration: 30, collection: 95, social: 20, defensive: 60 },
         traits: { cautious: 80, bold: 25, curious: 45, lazy: 30 },
@@ -141,31 +169,35 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
       return;
     }
 
-    onCreateAgent(config);
-    setIsOpen(false);
+    // 發送更新配置到後端
+    const ws = new WebSocket('ws://localhost:8080');
 
-    // 重置表單
-    setConfig({
-      agentId: '',
-      name: '',
-      llmProvider: {
-        type: 'openai',
-        apiKey: '',
-        model: 'gpt-5-mini',
-        baseURL: 'http://localhost:11434',
-        temperature: 0.7,
-        maxRetries: 3
-      },
-      personality: {
-        behaviorTendencies: { exploration: 50, collection: 50, social: 50, defensive: 50 },
-        traits: { cautious: 50, bold: 50, curious: 50, lazy: 50 },
-        description: ''
-      },
-      memory: { shortTermSize: 20, longTermThreshold: 7, locationRadius: 5 },
-      toolPreferences: { allowedTools: [], blockedTools: [] },
-      initialState: { position: { x: 7, y: 6 }, bedPosition: { x: 6, y: 5 }, spriteKey: 'player' }
-    });
-    setCurrentTemplate('custom');
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: 'update_agent_config',
+        agent_id: config.agentId,
+        updates: config
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'config_updated') {
+        if (data.success) {
+          alert(`Agent ${config.agentId} configuration updated successfully!`);
+          setIsOpen(false);
+        } else {
+          alert(`Failed to update configuration: ${data.message}`);
+        }
+      }
+
+      ws.close();
+    };
+
+    ws.onerror = () => {
+      alert('Failed to connect to server. Make sure the backend is running.');
+    };
   };
 
   return (
@@ -176,12 +208,30 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
 
       {isOpen && (
         <div className="config-form-container">
-          <h3>Create New Agent</h3>
+          <h3>Configure Agent: {config.agentId}</h3>
+          <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+            {mode === 'edit' ? '編輯現有 Agent 配置' : '創建新的 Agent'}
+          </p>
 
           <form onSubmit={handleSubmit} className="config-form">
+            {/* Agent ID - 鎖定不可編輯 */}
+            <section className="form-section">
+              <h4>Agent ID</h4>
+              <input
+                type="text"
+                value={config.agentId}
+                disabled
+                style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                title="Agent ID cannot be changed"
+              />
+              <small style={{ color: '#666', fontSize: '11px' }}>
+                正在編輯現有的 Agent，ID 無法更改
+              </small>
+            </section>
+
             {/* 模板選擇 */}
             <section className="form-section">
-              <h4>Template</h4>
+              <h4>Template (快速套用)</h4>
               <select
                 value={currentTemplate}
                 onChange={(e) => {
@@ -200,17 +250,10 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
 
             {/* 基本信息 */}
             <section className="form-section">
-              <h4>Basic Info</h4>
+              <h4>Display Name</h4>
               <input
                 type="text"
-                placeholder="Agent ID (e.g., explorer1)"
-                value={config.agentId}
-                onChange={(e) => updateConfig('agentId', e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Display Name"
+                placeholder="Display Name (optional)"
                 value={config.name}
                 onChange={(e) => updateConfig('name', e.target.value)}
               />
@@ -223,8 +266,8 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
                 value={config.llmProvider.type}
                 onChange={(e) => updateConfig('llmProvider.type', e.target.value)}
               >
-                <option value="openai">OpenAI</option>
-                <option value="ollama">Ollama (Local)</option>
+                <option value="ollama">Ollama (Local - 推薦，免費)</option>
+                <option value="openai">OpenAI (需要 API Key，會花錢)</option>
               </select>
 
               {config.llmProvider.type === 'openai' && (
@@ -246,18 +289,24 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
 
               {config.llmProvider.type === 'ollama' && (
                 <>
-                  <input
-                    type="text"
-                    placeholder="Model (e.g., gemma3:12b)"
+                  <select
                     value={config.llmProvider.model}
                     onChange={(e) => updateConfig('llmProvider.model', e.target.value)}
-                  />
+                  >
+                    <option value="gemma3:4b">gemma3:4b (推薦 - 速度快)</option>
+                    <option value="gemma3:12b">gemma3:12b (較慢但更聰明)</option>
+                    <option value="llama3.2:3b">llama3.2:3b (快速)</option>
+                    <option value="llama3.2:7b">llama3.2:7b (平衡)</option>
+                  </select>
                   <input
                     type="text"
                     placeholder="Base URL"
                     value={config.llmProvider.baseURL}
                     onChange={(e) => updateConfig('llmProvider.baseURL', e.target.value)}
                   />
+                  <small style={{ color: '#666', fontSize: '11px' }}>
+                    請確保 Ollama 服務已啟動: ollama serve
+                  </small>
                 </>
               )}
 
@@ -392,8 +441,18 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
             </section>
 
             <button type="submit" className="create-button">
-              Create Agent
+              {mode === 'edit' ? '更新配置' : 'Create Agent'}
             </button>
+
+            <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#fffbea', borderRadius: '4px' }}>
+              <strong>💡 提示：</strong>
+              <ul style={{ fontSize: '12px', marginTop: '5px', paddingLeft: '20px' }}>
+                <li>使用 Ollama 可以免費運行，不會燒錢</li>
+                <li>修改配置後，Agent 會在下次決策時使用新配置</li>
+                <li>建議：exploration 高的 Agent 會更愛探索</li>
+                <li>建議：cautious 高的 Agent 會更謹慎行動</li>
+              </ul>
+            </div>
           </form>
         </div>
       )}

@@ -249,6 +249,38 @@ wss.on('connection', function connection(ws) {
         }
       }
 
+      else if (parsedData.type === 'get_agent_config') {
+        const agentId = parsedData.agent_id;
+
+        console.log(`\n📋 Getting config for agent: ${agentId}`);
+
+        try {
+          const config = configManager.getConfig(agentId);
+
+          if (config) {
+            ws.send(JSON.stringify({
+              type: 'agent_config',
+              success: true,
+              agent_id: agentId,
+              config: config
+            }));
+          } else {
+            ws.send(JSON.stringify({
+              type: 'agent_config',
+              success: false,
+              message: `No config found for agent ${agentId}`
+            }));
+          }
+        } catch (error) {
+          console.error(`❌ Failed to get config:`, error.message);
+          ws.send(JSON.stringify({
+            type: 'agent_config',
+            success: false,
+            message: error.message
+          }));
+        }
+      }
+
       else if (parsedData.type === 'update_agent_config') {
         const agentId = parsedData.agent_id;
         const updates = parsedData.updates;
