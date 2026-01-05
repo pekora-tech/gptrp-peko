@@ -1,0 +1,174 @@
+[
+  {
+    "name": "goto_bed",
+    "description": "Navigate to bed location and sleep until fully rested",
+    "category": "survival",
+    "version": "1.0.0",
+    "preconditions": [
+      {
+        "type": "state_check",
+        "field": "sleepiness",
+        "operator": ">",
+        "value": 5
+      },
+      {
+        "type": "location_known",
+        "resource": "bed"
+      }
+    ],
+    "steps": [
+      {
+        "type": "find_location",
+        "description": "Find bed location from memory",
+        "params": {
+          "resource": "bed"
+        }
+      },
+      {
+        "type": "navigate",
+        "description": "Navigate to bed location",
+        "params": {
+          "useResult": 0,
+          "timeout": 30000
+        },
+        "onFailure": "call_ai",
+        "retryable": true
+      },
+      {
+        "type": "action",
+        "description": "Execute sleep action",
+        "params": {
+          "actionType": "sleep"
+        }
+      },
+      {
+        "type": "wait",
+        "description": "Wait for sleep to take effect",
+        "params": {
+          "duration": 2000
+        }
+      }
+    ],
+    "expected_outcome": {
+      "description": "Sleepiness reduced to near zero",
+      "state_changes": [
+        {
+          "field": "sleepiness",
+          "operator": "<=",
+          "value": 1
+        }
+      ]
+    },
+    "created_by": "system"
+  },
+  {
+    "name": "explore_area",
+    "description": "Explore nearby area by moving in a pattern",
+    "category": "exploration",
+    "version": "1.0.0",
+    "preconditions": [],
+    "steps": [
+      {
+        "type": "action",
+        "description": "Move up",
+        "params": {
+          "actionType": "move",
+          "actionData": {
+            "direction": "up"
+          }
+        }
+      },
+      {
+        "type": "action",
+        "description": "Move right",
+        "params": {
+          "actionType": "move",
+          "actionData": {
+            "direction": "right"
+          }
+        }
+      },
+      {
+        "type": "action",
+        "description": "Move down",
+        "params": {
+          "actionType": "move",
+          "actionData": {
+            "direction": "down"
+          }
+        }
+      },
+      {
+        "type": "action",
+        "description": "Move left",
+        "params": {
+          "actionType": "move",
+          "actionData": {
+            "direction": "left"
+          }
+        }
+      }
+    ],
+    "expected_outcome": {
+      "description": "Explored 4 adjacent tiles"
+    },
+    "created_by": "system"
+  },
+  {
+    "name": "plant_crops",
+    "description": "Find plantable grass tiles and plant crops",
+    "category": "farming",
+    "version": "1.0.0",
+    "preconditions": [],
+    "steps": [
+      {
+        "type": "action",
+        "description": "Plant crop on current tile",
+        "params": {
+          "actionType": "plant"
+        }
+      },
+      {
+        "type": "wait",
+        "description": "Wait for planting to complete",
+        "params": {
+          "duration": 1000
+        }
+      }
+    ],
+    "expected_outcome": {
+      "description": "Crop planted on grass tile"
+    },
+    "created_by": "system"
+  },
+  {
+    "name": "random_walk",
+    "description": "Move randomly to explore unknown areas",
+    "category": "exploration",
+    "version": "1.0.0",
+    "preconditions": [],
+    "steps": [
+      {
+        "type": "action",
+        "description": "Move in random direction",
+        "params": {
+          "actionType": "move",
+          "actionData": {
+            "direction": "up"
+          }
+        }
+      },
+      {
+        "type": "wait",
+        "description": "Pause to observe",
+        "params": {
+          "duration": 500
+        }
+      }
+    ],
+    "expected_outcome": {
+      "description": "Moved to new location"
+    },
+    "created_by": "system"
+  }
+]
