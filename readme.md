@@ -1,56 +1,55 @@
 # GPTRPG
 
-![map of the game](map.png)
+![遊戲地圖](map.png)
 
-This repo contains two things:
+這個 repo 包含兩件事：
 
-* A simple RPG-like environment for an LLM-enabled AI Agent to exist in
-* A simple AI Agent connected to the OpenAI API to exist in that environment
+* 一個供 LLM 驅動的 AI 代理存在的簡單 RPG 風格環境
+* 一個連接到 OpenAI API 並存在於該環境中的簡單 AI 代理
 
-It is intended as a proof of concept.
+這旨在作為一個概念驗證。
 
-## Running
+## 執行
 
-GPTRPG is intended to be run locally. To run:
+GPTRPG 旨在本地執行。要執行：
 
-1. Make sure you have updated the `agent/env.json` file with your OpenAI API key.  
-2. Only tested with node 16.19.0 
-2. In the `gptrpg` directory run `npm install` to install dependencies for all projects.
-3. Then run `npm start` in the root directory.  This will start the agent and the front-end.  The front-end will be available at `http://localhost:3000`.
+1. 確保你已經在 `agent/env.json` 檔案中更新了你的 OpenAI API 金鑰。
+2. 僅在 node 16.19.0 上測試過
+2. 在 `gptrpg` 目錄中執行 `npm install` 以安裝所有專案的依賴項。
+3. 然後在根目錄執行 `npm start`。這將啟動代理和前端。前端將可在 `http://localhost:3000` 訪問。
 
-## The Environment
-Code for the environment lives in the `ui-admin` directory. It is a React project.
+## 環境
+環境的程式碼位於 `ui-admin` 目錄中。這是一個 React 專案。
 
-The environment was made with [Tiled](https://www.mapeditor.org/) map editor.  The files live in `ui-admin/src/assets`.
+環境是使用 Tiled 地圖編輯器製作的。檔案位於 `ui-admin/src/assets`。
 
-The environment is rendered with [Phaser](https://phaser.io/) and the [Grid Engine Plugin](https://annoraaq.github.io/grid-engine/)
+環境使用 Phaser 和 Grid Engine Plugin 渲染。
 
-The environment consists of:
+環境包含：
 
-* The character (agent)
-* Impassable tiles
-* A plant layer with "plantable" tiles, and plants (not currently in use by agent).  Player can plant food on plantable tiles with S key and harvest food with D key.
+* 角色（代理）
+* 不可通行的圖塊
+* 一個帶有「可種植」圖塊和植物的植物層（目前代理未使用）。玩家可以使用 S 鍵在可種植圖塊上種植食物，並使用 D 鍵收穫食物。
 
-## The Agent
-Code for the agent lives in the `agent` directory.
+## 代理
+代理的程式碼位於 `agent` 目錄中。
 
-The agent is a simple AI agent that uses the OpenAI API to make decisions.  It communicates with the front-end via a websocket.
+該代理是一個簡單的 AI 代理，使用 OpenAI API 做出決策。它透過 websocket 與前端通訊。
 
-The agent is provided with a list of possible actions, the state of its surroundings, and its internal state (currently only sleepiness is measured).
+代理被提供了一系列可能的動作、周圍環境的狀態以及其內部狀態（目前僅測量睡意）。
 
-## Upcoming features
+## 即將推出的功能
 
-* Multi agent support
-* More agent actions (drink, eat, plant food, harvest food, write poetry, etc.)
-* More agent states (hunger, thirst, etc.)
-* Agent memory
-* Agent goals
-* Agent inventory
-* Deployment to web
-* Human controlled character
-* UI enhancements (agent state, human interactions, etc.)
+* 多代理支援
+* 更多代理動作（喝水、吃東西、種植食物、收穫食物、寫詩等）
+* 更多代理狀態（飢餓、口渴等）
+* 代理記憶
+* 代理目標
+* 代理庫存
+* 部署到網頁
+* 人類控制的角色
+* UI 增強（代理狀態、人類互動等）
 
-## Notes
+## 備註
 
-Currently, GPTRPG runs with the `gpt-3.5-turbo` API.
-
+目前，GPTRPG 使用 `gpt-3.5-turbo` API 執行。
