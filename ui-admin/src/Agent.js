@@ -12,6 +12,15 @@ class Agent {
 
     this.socket.addEventListener('open', () => {
       this.socket.send(JSON.stringify({ type: 'create_agent', agent_id }));
+
+      // Record bed location to memory after agent is created
+      setTimeout(() => {
+        this.socket.send(JSON.stringify({
+          type: 'record_bed_location',
+          agent_id: agent_id,
+          bed_location: bedPosition
+        }));
+      }, 1000);
     });
 
     this.initializeServerListener();
@@ -32,6 +41,14 @@ class Agent {
       if(res.type === 'ai_log') {
         if (this.onAILog) {
           this.onAILog(res.data);
+        }
+        return;
+      }
+
+      // Handle task updates
+      if(res.type === 'task_update') {
+        if (window.__TASK_UPDATE_CALLBACK__) {
+          window.__TASK_UPDATE_CALLBACK__(res.data);
         }
         return;
       }

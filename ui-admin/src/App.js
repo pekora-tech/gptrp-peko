@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import './App.css';
 import GridEngine from "grid-engine";
 import AIConsole from './AIConsole';
+import TaskManager from './TaskManager';
 
 import preload from './preload';
 import create from './create';
@@ -11,11 +12,17 @@ import update from './update';
 function App() {
   const gameRef = useRef(null);
   const [aiLogs, setAiLogs] = useState([]);
+  const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
     // Set up global callback for AI logs
     window.__AI_LOG_CALLBACK__ = (logData) => {
       setAiLogs((prevLogs) => [...prevLogs, logData]);
+    };
+
+    // Set up global callback for task updates
+    window.__TASK_UPDATE_CALLBACK__ = (taskData) => {
+      setTasks((prevTasks) => [...prevTasks, taskData]);
     };
 
     if (gameRef.current === null) {
@@ -55,13 +62,36 @@ function App() {
     // Cleanup on unmount
     return () => {
       delete window.__AI_LOG_CALLBACK__;
+      delete window.__TASK_UPDATE_CALLBACK__;
     };
   }, []);
+
+  const handleAddTask = (task) => {
+    setTasks((prevTasks) => [...prevTasks, task]);
+  };
+
+  const handleUpdateTask = (index, updates) => {
+    setTasks((prevTasks) => {
+      const newTasks = [...prevTasks];
+      newTasks[index] = { ...newTasks[index], ...updates };
+      return newTasks;
+    });
+  };
+
+  const handleDeleteTask = (index) => {
+    setTasks((prevTasks) => prevTasks.filter((_, i) => i !== index));
+  };
 
   return (
     <>
       <div id="game"></div>
       <AIConsole logs={aiLogs} />
+      <TaskManager
+        tasks={tasks}
+        onAddTask={handleAddTask}
+        onUpdateTask={handleUpdateTask}
+        onDeleteTask={handleDeleteTask}
+      />
     </>
   );
 }

@@ -3,10 +3,12 @@ import extract from "extract-json-from-string";
 import env from "./env.json" assert { type: "json" };
 
 class ServerAgent {
-  constructor(id, memoryManager, goalManager, logCallback = null) {
+  constructor(id, memoryManager, goalManager, toolManager, behaviorExecutor, logCallback = null) {
     this.id = id;
     this.memoryManager = memoryManager;
     this.goalManager = goalManager;
+    this.toolManager = toolManager;
+    this.behaviorExecutor = behaviorExecutor;
     this.logCallback = logCallback; // Callback for sending logs to client
 
     // Initialize OpenAI client with new SDK (v4+)
@@ -14,7 +16,7 @@ class ServerAgent {
       apiKey: env.OPENAI_API_KEY,
     });
 
-    this.model = env.OPENAI_MODEL || "gpt-4o-mini";
+    this.model = env.OPENAI_MODEL || "gpt-5-mini";
   }
 
   /**
@@ -62,25 +64,62 @@ class ServerAgent {
         );
       }
 
-      // 3. 收集記憶和目標上下文
+      // 3. 檢查是否有推薦的工具（基於當前狀態）
+      const suggestedTool = this.toolManager.suggestTool(parsedData);
+      let toolSuggestion = null;
+
+      if (suggestedTool && suggestedTool.confidence > 0.8) {
+        console.log(`💡 Tool suggested: ${suggestedTool.name} (confidence: ${suggestedTool.confidence})`);
+
+        // 發送任務建議事件
+        this.sendLog('task_update', {
+          description: `Suggested: ${suggestedTool.name} - ${suggestedTool.reason}`,
+          status: 'pending',
+          toolName: suggestedTool.name,
+          createdAt: new Date().toISOString()
+        });
+
+        toolSuggestion = suggestedTool;
+      }
+
+      // 4. 收集記憶和目標上下文
       const context = await this.buildContext(parsedData);
 
-      // 4. 調用 LLM 做決策
+      // 添加工具建議到上下文
+      if (toolSuggestion) {
+        context.suggestedTool = toolSuggestion;
+      }
+
+      // 5. 調用 LLM 做決策
       const decision = await this.makeDecision(context);
 
-      // 5. 處理新目標（如果 AI 設定了新目標）
+      // 6. 檢查 AI 是否使用了建議的工具
+      if (toolSuggestion && decision.action) {
+        const usedTool = this.checkIfToolUsed(decision.action, toolSuggestion);
+        if (usedTool) {
+          this.sendLog('task_update', {
+            description: `AI using tool: ${toolSuggestion.name}`,
+            status: 'in_progress',
+            toolName: toolSuggestion.name,
+            action: decision.action,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+
+      // 7. 處理新目標（如果 AI 設定了新目標）
       if (decision.new_goal) {
         console.log(`🎯 New goal set: ${decision.new_goal}`);
         await this.goalManager.createGoal(decision.new_goal, 'general', 5);
       }
 
-      // 6. 記錄決策到短期記憶
+      // 8. 記錄決策到短期記憶
       await this.memoryManager.addShortTermMemory(
         { type: 'decision', action: decision.action },
         { reasoning: decision.reasoning || 'No reasoning provided' }
       );
 
-      // 7. 清理舊的短期記憶（保持數據庫整潔）
+      // 9. 清理舊的短期記憶（保持數據庫整潔）
       await this.memoryManager.cleanOldShortTermMemories(
         env.MEMORY_SHORT_TERM_SIZE || 20
       );
@@ -166,7 +205,23 @@ class ServerAgent {
    * @returns {string} Prompt 字符串
    */
   buildEnhancedPrompt(context) {
-    const { currentState, recentActions, importantMemories, nearbyLocations, recentInteractions, currentGoal } = context;
+    const { currentState, recentActions, importantMemories, nearbyLocations, recentInteractions, currentGoal, suggestedTool } = context;
+
+    // 構建工具建議部分
+    let toolSection = '';
+    if (suggestedTool) {
+      toolSection = `
+# 🔧 Tool Recommendation
+**Suggested Tool**: ${suggestedTool.name}
+**Confidence**: ${(suggestedTool.confidence * 100).toFixed(0)}%
+**Reason**: ${suggestedTool.reason}
+
+You have a high-priority tool recommendation! Consider using it:
+- For goto_bed: Use "navigate" action to go to bed location, then "sleep" action when you arrive
+- The bed location is stored in your memory at the coordinates you've visited before
+
+`;
+    }
 
     // 構建目標部分
     let goalSection = '';
@@ -227,7 +282,7 @@ ${recentInteractions.map(int => `- ${int.type} at (${int.location.x}, ${int.loca
 
 You are an intelligent AI agent living in a simulated 2D universe. You have memory capabilities and can remember past actions and experiences. Your goal is to exist as best as you see fit and meet your needs.
 
-${goalSection}
+${toolSection}${goalSection}
 
 # Current State
 
@@ -262,7 +317,8 @@ You MUST respond with a valid JSON object in the following format:
 Important:
 - Consider your current goal when making decisions
 - Use your memories to make informed choices
-- If sleepiness is high (>7), consider finding a bed to sleep
+- If sleepiness is high (>7), you MUST navigate to bed and sleep
+- When using goto_bed: first navigate to bed location, then sleep
 - Explore new areas to build your location memory
 - Your response must be valid JSON
 
@@ -352,6 +408,21 @@ The JSON response indicating your next action is:`;
       const extractedJson = extract(text)[0];
       return extractedJson || null;
     }
+  }
+
+  /**
+   * 檢查 AI 是否使用了建議的工具
+   * @param {Object} action - AI 決策的動作
+   * @param {Object} toolSuggestion - 建議的工具
+   * @returns {boolean}
+   */
+  checkIfToolUsed(action, toolSuggestion) {
+    // 如果建議的是 goto_bed 工具
+    if (toolSuggestion.name === 'goto_bed') {
+      // 檢查是否是 navigate 到床的位置或 sleep 動作
+      return action.type === 'navigate' || action.type === 'sleep';
+    }
+    return false;
   }
 }
 

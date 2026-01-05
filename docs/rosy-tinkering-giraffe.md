@@ -191,7 +191,7 @@ CREATE TABLE interactions (
 **修改文件**: `agent/ServerAgent.js`
 
 **改進 OpenAI 調用**：
-- 修正模型名稱（`gpt-5-mini` → `gpt-3.5-turbo` 或 `gpt-4o-mini`）
+- 修正模型名稱（`gpt-5-mini` → `gpt-3.5-turbo` 或 `gpt-5-mini`）
 - 使用最新的 OpenAI SDK
 - 優化錯誤處理和重試機制
 - 添加 response format 為 JSON mode
@@ -209,7 +209,7 @@ async callOpenAI(prompt, attempt = 0) {
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",  // 或 "gpt-3.5-turbo"
+      model: "gpt-5-mini",  // 或 "gpt-3.5-turbo"
       messages: [
         {
           role: "system",
@@ -244,7 +244,7 @@ async callOpenAI(prompt, attempt = 0) {
 ```json
 {
   "OPENAI_API_KEY": "sk-your-api-key-here",
-  "OPENAI_MODEL": "gpt-4o-mini",
+  "OPENAI_MODEL": "gpt-5-mini",
 
   "MEMORY_SHORT_TERM_SIZE": 10,
   "MEMORY_LONG_TERM_THRESHOLD": 7,
@@ -1056,7 +1056,7 @@ class LLMProvider {
    */
   async chatOpenAI(messages, format) {
     const apiOptions = {
-      model: this.config.OPENAI_MODEL || 'gpt-4o-mini',
+      model: this.config.OPENAI_MODEL || 'gpt-5-mini',
       messages: messages,
       temperature: 0.7,
     };
@@ -1102,7 +1102,7 @@ module.exports = LLMProvider;
   "OUTPUT_FORMAT": "json",  // 或 "tag"
 
   "OPENAI_API_KEY": "sk-your-api-key-here",
-  "OPENAI_MODEL": "gpt-4o-mini",
+  "OPENAI_MODEL": "gpt-5-mini",
 
   "MEMORY_SHORT_TERM_SIZE": 10,
   "MEMORY_LONG_TERM_THRESHOLD": 7,

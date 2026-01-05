@@ -36,7 +36,7 @@
 GPTRPG 是一個創新的概念驗證專案，展示了具備**記憶**和**目標**的智能 AI 代理如何在虛擬世界中生存。專案結合了以下核心元素：
 
 1. **🗺️ RPG 風格遊戲環境** - 基於 Phaser 和 Grid Engine 的 2D 互動世界
-2. **🤖 智能 AI 代理** - 連接 OpenAI GPT-5-mini，擁有記憶和目標追蹤能力 (動物或低智商生物屆時會用ollama + gemma3e:4n + tag標記對應動作)
+2. **🤖 智能 AI 代理** - 連接 OpenAI GPT-5-mini (永不考量低於5以下的model)，擁有記憶和目標追蹤能力 (動物或低智商生物屆時會用ollama + gemma3e:4n + tag標記對應動作)
 3. **🧠 四種記憶系統** - 短期、長期、位置、互動記憶，持久化保存在 SQLite
 4. **🎯 目標驅動決策** - AI 可自主設定目標、追蹤進度並完成任務
 
@@ -111,7 +111,7 @@ AI 代理不僅根據當下環境做出反應，更能**記住過去的經驗**�
 │                         │               ▼                           │
 │                         │        ┌─────────────┐                    │
 │                         │        │  OpenAI API │                    │
-│                         │        │(GPT-4o-mini)│                    │
+│                         │        │(gpt-5-mini)│                    │
 │                         │        └─────────────┘                    │
 └─────────────────────────┴───────────────────────────────────────────┘
 ```
@@ -167,7 +167,7 @@ cp env.example.json env.json
 ```json
 {
   "OPENAI_API_KEY": "sk-your-api-key-here",
-  "OPENAI_MODEL": "gpt-4o-mini",
+  "OPENAI_MODEL": "gpt-5-mini",
   "MEMORY_SHORT_TERM_SIZE": 10,
   "MEMORY_LONG_TERM_THRESHOLD": 7,
   "MEMORY_LOCATION_RADIUS": 5,
@@ -178,7 +178,7 @@ cp env.example.json env.json
 **配置說明**：
 
 - `OPENAI_API_KEY`: 你的 OpenAI API 金鑰
-- `OPENAI_MODEL`: 使用的模型（推薦 `gpt-4o-mini` 性價比高）
+- `OPENAI_MODEL`: 使用的模型（推薦 `gpt-5-mini` 性價比高）
 - `MEMORY_SHORT_TERM_SIZE`: 短期記憶保留數量（預設 10 條）
 - `MEMORY_LONG_TERM_THRESHOLD`: 長期記憶重要性閾值（7-10 分的記憶會被保留）
 - `MEMORY_LOCATION_RADIUS`: 位置記憶搜索半徑
@@ -336,7 +336,7 @@ gptrpg/
    │ 請以 JSON 格式回應下一步動作                           │
    └────────────────────────────────────────────────────────┘
 
-6. 🌐 呼叫 OpenAI API (GPT-4o-mini)
+6. 🌐 呼叫 OpenAI API (gpt-5-mini)
    ↓
    (AI 基於記憶、目標和當前狀態做出決策)
 

@@ -3,7 +3,10 @@ import ServerAgent from './ServerAgent.js';
 import DatabaseManager from './database.js';
 import MemoryManager from './MemoryManager.js';
 import GoalManager from './GoalManager.js';
+import ToolManager from './ToolManager.js';
+import BehaviorExecutor from './BehaviorExecutor.js';
 import env from './env.json' assert { type: 'json' };
+import presetTools from './tools/presets.json' assert { type: 'json' };
 
 console.log('🚀 Starting GPTRPG Agent Server...\n');
 
@@ -46,17 +49,41 @@ wss.on('connection', function connection(ws) {
         // Create memory and goal managers for this agent
         const memoryManager = new MemoryManager(db, agentId);
         const goalManager = new GoalManager(db, agentId);
+        const toolManager = new ToolManager(db, agentId);
+        const behaviorExecutor = new BehaviorExecutor(db, agentId, toolManager, memoryManager);
 
-        // Create log callback to send AI logs to client
+        // Load preset tools (only on first creation)
+        const existingTools = db.all('SELECT id FROM tools WHERE agent_id = ?', [agentId]);
+        if (existingTools.length === 0) {
+          console.log(`📦 Loading preset tools for agent ${agentId}...`);
+          toolManager.loadPresetTools(presetTools);
+        }
+
+        // Create log callback to send AI logs and task updates to client
         const logCallback = (logData) => {
-          ws.send(JSON.stringify({
-            type: 'ai_log',
-            data: logData
-          }));
+          // If it's a task update, send it as a separate type
+          if (logData.type === 'task_update') {
+            ws.send(JSON.stringify({
+              type: 'task_update',
+              data: logData
+            }));
+          } else {
+            ws.send(JSON.stringify({
+              type: 'ai_log',
+              data: logData
+            }));
+          }
         };
 
-        // Create the server agent with memory and goal capabilities
-        agents[agentId] = new ServerAgent(agentId, memoryManager, goalManager, logCallback);
+        // Create the server agent with all capabilities
+        agents[agentId] = new ServerAgent(
+          agentId,
+          memoryManager,
+          goalManager,
+          toolManager,
+          behaviorExecutor,
+          logCallback
+        );
 
         console.log(`✓ Agent ${agentId} created with memory and goal systems`);
 
@@ -111,6 +138,23 @@ wss.on('connection', function connection(ws) {
             type: 'error',
             message: `Agent with id ${agentId} not found`
           }));
+        }
+      }
+
+      else if (parsedData.type === 'record_bed_location') {
+        // Record bed location to memory
+        const agentId = parsedData.agent_id;
+        const bedLocation = parsedData.bed_location;
+
+        if (agents[agentId] && bedLocation) {
+          const agent = agents[agentId];
+          await agent.memoryManager.recordLocation(
+            bedLocation.x,
+            bedLocation.y,
+            'bed',
+            { resource: 'bed', type: 'sleep_location' }
+          );
+          console.log(`🛏️  Recorded bed location: (${bedLocation.x}, ${bedLocation.y}) for agent ${agentId}`);
         }
       }
 
