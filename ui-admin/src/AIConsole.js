@@ -6,9 +6,9 @@ const AIConsole = ({ logs }) => {
   const [isMinimized, setIsMinimized] = useState(false);
   const consoleBodyRef = useRef(null);
 
-  // Auto-scroll to bottom when new logs arrive
+  // Auto-scroll to bottom when new logs arrive (only in collapsed mode)
   useEffect(() => {
-    if (consoleBodyRef.current && isExpanded && !isMinimized) {
+    if (consoleBodyRef.current && !isExpanded && !isMinimized) {
       consoleBodyRef.current.scrollTop = consoleBodyRef.current.scrollHeight;
     }
   }, [logs, isExpanded, isMinimized]);
