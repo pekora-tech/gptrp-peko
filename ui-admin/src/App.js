@@ -4,6 +4,7 @@ import './App.css';
 import GridEngine from "grid-engine";
 import AIConsole from './AIConsole';
 import TaskManager from './TaskManager';
+import AgentConfigPanel from './AgentConfigPanel';  // 新增
 
 import preload from './preload';
 import create from './create';
@@ -13,6 +14,14 @@ function App() {
   const gameRef = useRef(null);
   const [aiLogs, setAiLogs] = useState([]);
   const [tasks, setTasks] = useState([]);
+
+  // 新增：處理動態創建 Agent
+  const handleCreateAgent = (config) => {
+    console.log('Creating agent with config:', config);
+    // TODO: 實現動態添加 Agent 到場景
+    // 可以通過 window.__GRID_ENGINE__ 和 window.__AGENTS__ 訪問
+    alert(`Agent ${config.agentId} created! Refresh the page to see it.`);
+  };
 
   useEffect(() => {
     // Set up global callback for AI logs
@@ -92,6 +101,7 @@ function App() {
         onUpdateTask={handleUpdateTask}
         onDeleteTask={handleDeleteTask}
       />
+      <AgentConfigPanel onCreateAgent={handleCreateAgent} />  {/* 新增 */}
     </>
   );
 }

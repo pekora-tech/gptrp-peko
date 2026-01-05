@@ -1,22 +1,16 @@
-import OpenAI from "openai";
 import extract from "extract-json-from-string";
 import env from "./env.json" assert { type: "json" };
 
 class ServerAgent {
-  constructor(id, memoryManager, goalManager, toolManager, behaviorExecutor, logCallback = null) {
+  constructor(id, memoryManager, goalManager, toolManager, behaviorExecutor, llmProvider, agentConfig, logCallback = null) {
     this.id = id;
     this.memoryManager = memoryManager;
     this.goalManager = goalManager;
     this.toolManager = toolManager;
     this.behaviorExecutor = behaviorExecutor;
+    this.llmProvider = llmProvider;      // NEW: LLM Provider abstraction
+    this.agentConfig = agentConfig;      // NEW: Agent configuration
     this.logCallback = logCallback; // Callback for sending logs to client
-
-    // Initialize OpenAI client with new SDK (v4+)
-    this.openai = new OpenAI({
-      apiKey: env.OPENAI_API_KEY,
-    });
-
-    this.model = env.OPENAI_MODEL || "gpt-5-mini";
   }
 
   /**
@@ -187,7 +181,7 @@ class ServerAgent {
     });
 
     try {
-      const response = await this.callOpenAI(prompt, 0);
+      const response = await this.callLLM(prompt, 0);
       return response;
     } catch (error) {
       console.error("❌ Error making decision:", error);
@@ -200,12 +194,83 @@ class ServerAgent {
   }
 
   /**
+   * 建立性格特質描述
+   */
+  buildTraitsDescription(personality) {
+    if (!personality) return '';
+
+    const { behaviorTendencies, traits, description } = personality;
+    const descriptions = [];
+
+    // 行為傾向描述
+    if (behaviorTendencies) {
+      if (behaviorTendencies.exploration > 70) {
+        descriptions.push("You have a strong urge to explore unknown areas");
+      } else if (behaviorTendencies.exploration < 30) {
+        descriptions.push("You prefer staying in familiar territory");
+      }
+
+      if (behaviorTendencies.collection > 70) {
+        descriptions.push("You love collecting and hoarding resources");
+      }
+
+      if (behaviorTendencies.social > 70) {
+        descriptions.push("You seek out social interactions and companionship");
+      }
+
+      if (behaviorTendencies.defensive > 70) {
+        descriptions.push("You prioritize safety and defensive strategies");
+      }
+    }
+
+    // 性格特質描述
+    if (traits) {
+      if (traits.cautious > 70) {
+        descriptions.push("You are extremely cautious and risk-averse");
+      } else if (traits.bold > 70) {
+        descriptions.push("You are bold and enjoy taking calculated risks");
+      }
+
+      if (traits.curious > 70) {
+        descriptions.push("You have an insatiable curiosity about the world");
+      }
+
+      if (traits.lazy > 70) {
+        descriptions.push("You prefer efficiency and minimal effort solutions");
+      }
+    }
+
+    // 自定義描述
+    if (description) {
+      descriptions.push(description);
+    }
+
+    return descriptions.join('. ');
+  }
+
+  /**
    * 構建增強的 prompt（包含記憶和目標）
    * @param {Object} context - 上下文
    * @returns {string} Prompt 字符串
    */
   buildEnhancedPrompt(context) {
     const { currentState, recentActions, importantMemories, nearbyLocations, recentInteractions, currentGoal, suggestedTool } = context;
+    const personality = this.agentConfig?.personality;
+
+    // === 新增：個性化介紹部分 ===
+    let personalitySection = '';
+    if (personality) {
+      const traits = this.buildTraitsDescription(personality);
+      if (traits) {
+        personalitySection = `
+## Your Personality
+
+${traits}
+
+This personality influences how you interpret situations and make decisions.
+`;
+      }
+    }
 
     // 構建工具建議部分
     let toolSection = '';
@@ -282,7 +347,7 @@ ${recentInteractions.map(int => `- ${int.type} at (${int.location.x}, ${int.loca
 
 You are an intelligent AI agent living in a simulated 2D universe. You have memory capabilities and can remember past actions and experiences. Your goal is to exist as best as you see fit and meet your needs.
 
-${toolSection}${goalSection}
+${personalitySection}${toolSection}${goalSection}
 
 # Current State
 
@@ -326,18 +391,17 @@ The JSON response indicating your next action is:`;
   }
 
   /**
-   * 調用 OpenAI API（使用新版 SDK）
+   * 調用 LLM API（通過 Provider 抽象層）
    * @param {string} prompt - Prompt 字符串
    * @param {number} attempt - 當前嘗試次數
    * @returns {Object} 解析後的 JSON 對象
    */
-  async callOpenAI(prompt, attempt) {
-    if (attempt > 3) {
-      console.warn("⚠️  Max retry attempts reached, returning default action");
-      return {
-        action: { type: "wait" },
-        reasoning: "Failed to get valid response from LLM"
-      };
+  async callLLM(prompt, attempt = 0) {
+    const maxRetries = this.agentConfig?.llmProvider?.maxRetries || 3;
+
+    if (attempt >= maxRetries) {
+      console.warn("⚠️  Max retry attempts reached");
+      return { action: { type: "wait" }, reasoning: "Failed to get valid response" };
     }
 
     if (attempt > 0) {
@@ -345,51 +409,35 @@ The JSON response indicating your next action is:`;
     }
 
     try {
-      const apiOptions = {
-        model: this.model,
-        messages: [
-          {
-            role: "system",
-            content: "You are an intelligent AI agent. Always respond with valid JSON."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },  // Force JSON output
-      };
+      // 使用抽象的 Provider
+      const response = await this.llmProvider.generateWithRetry(prompt, {
+        jsonMode: true,
+        temperature: this.agentConfig?.llmProvider?.temperature
+      }, attempt);
 
-      // Only add temperature for models that support it (not gpt-5-mini)
-      if (!this.model.includes('gpt-5-mini')) {
-        apiOptions.temperature = 0.7;
-      }
+      console.log(`🤖 LLM response (${response.provider}/${response.model}):`, response.content.substring(0, 100) + '...');
 
-      const response = await this.openai.chat.completions.create(apiOptions);
-
-      const content = response.choices[0].message.content;
-      console.log('🤖 OpenAI response:', content);
-
-      // Log the AI response
+      // Log
       this.sendLog('response', {
-        response: content,
-        model: this.model,
+        response: response.content,
+        model: response.model,
+        provider: response.provider,
         attempt: attempt + 1,
         usage: response.usage
       });
 
-      const responseObject = this.cleanAndProcess(content);
+      // 清理和驗證 JSON
+      const responseObject = this.cleanAndProcess(response.content);
       if (responseObject && responseObject.action) {
         return responseObject;
       }
 
       console.warn("⚠️  Invalid response structure, retrying...");
-      this.sendLog('warning', { message: 'Invalid response structure, retrying...', attempt: attempt + 1 });
-      return await this.callOpenAI(prompt, attempt + 1);
+      return await this.callLLM(prompt, attempt + 1);
 
     } catch (error) {
-      console.error(`❌ OpenAI API error (attempt ${attempt + 1}):`, error.message);
-      return await this.callOpenAI(prompt, attempt + 1);
+      console.error(`❌ LLM API error (attempt ${attempt + 1}):`, error.message);
+      return await this.callLLM(prompt, attempt + 1);
     }
   }
 

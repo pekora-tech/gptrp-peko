@@ -52,7 +52,16 @@ export default function create() {
     }
   };
 
-  this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, agentId, {x: 6, y: 5}, onAILog);
+  // === 改造點：使用完整的 agentConfig ===
+  const agentConfig = {
+    agentId: agentId,
+    initialState: {
+      bedPosition: { x: 6, y: 5 }
+    }
+    // llmProvider 會使用 env.json 的默認配置（向後兼容）
+  };
+
+  this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, agentId, agentConfig, onAILog);
   // END: Create agent
 
   // Create walkable tiles bridge

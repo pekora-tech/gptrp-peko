@@ -1,24 +1,33 @@
 class Agent {
-  constructor(gridEngine, fieldMapTileMap, agent_id, bedPosition = { x: 3, y: 3 }, onAILog = null) {
+  constructor(gridEngine, fieldMapTileMap, agent_id, agentConfig, onAILog = null) {
     this.gridEngine = gridEngine;
     this.fieldMapTileMap = fieldMapTileMap;
     this.agent_id = agent_id;
+
+    // === 改造點：接受完整配置 ===
+    this.agentConfig = agentConfig;
+    this.bedPosition = agentConfig.initialState?.bedPosition || { x: 3, y: 3 };
+
     this.sleepiness = 0;
-    this.bedPosition = bedPosition;
     this.onAILog = onAILog; // Callback for AI logs
 
     const socket = new WebSocket('ws://localhost:8080');
     this.socket = socket;
 
     this.socket.addEventListener('open', () => {
-      this.socket.send(JSON.stringify({ type: 'create_agent', agent_id }));
+      // === 改造點：發送配置到後端 ===
+      this.socket.send(JSON.stringify({
+        type: 'create_agent',
+        agent_id: agent_id,
+        config: agentConfig  // 傳送完整配置
+      }));
 
       // Record bed location to memory after agent is created
       setTimeout(() => {
         this.socket.send(JSON.stringify({
           type: 'record_bed_location',
           agent_id: agent_id,
-          bed_location: bedPosition
+          bed_location: this.bedPosition
         }));
       }, 1000);
     });

@@ -4,7 +4,12 @@
       "Bash(sqlite3:*)",
       "Bash(node test-tools.js:*)",
       "Bash(cat:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(mkdir:*)",
+      "Bash(node test-providers.js:*)",
+      "Bash(node test-config.js:*)",
+      "Bash(node test-integration.js:*)",
+      "Bash(node test-new-integration.js:*)"
     ]
   }
 }
