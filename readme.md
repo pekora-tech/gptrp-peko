@@ -54,6 +54,9 @@ AI 代理會根據周圍環境、內部狀態（如睡意、飢餓等）自主�
 
 ### 🧠 AI 代理系統
 - ✅ **GPT 驅動決策** - 使用 OpenAI API 進行智能決策
+- ✅ **四種記憶系統** - 短期記憶、長期記憶、位置記憶、互動記憶
+- ✅ **目標追蹤系統** - AI 可設定、追蹤和完成目標
+- ✅ **持久化存儲** - 使用 SQLite 保存記憶和目標，重啟後保留
 - ✅ **環境感知能力** - 感知位置、周圍物體、地形資訊
 - ✅ **內部狀態系統** - 追蹤睡意、飢餓、口渴等生理狀態
 - ✅ **自主行動能力** - 移動、等待、導航、睡眠等基礎動作
@@ -116,7 +119,12 @@ cd gptrpg
 
 ```json
 {
-  "OPENAI_API_KEY": "sk-your-api-key-here"
+  "OPENAI_API_KEY": "sk-your-api-key-here",
+  "OPENAI_MODEL": "gpt-4o-mini",
+  "MEMORY_SHORT_TERM_SIZE": 10,
+  "MEMORY_LONG_TERM_THRESHOLD": 7,
+  "MEMORY_LOCATION_RADIUS": 5,
+  "DATABASE_PATH": "./agent_memory.db"
 }
 ```
 
@@ -156,7 +164,11 @@ gptrpg/
 ├── 📂 agent/                    # AI 代理後端服務
 │   ├── index.js                 # WebSocket 伺服器入口
 │   ├── ServerAgent.js           # AI 代理核心邏輯
+│   ├── database.js              # SQLite 數據庫管理
+│   ├── MemoryManager.js         # 記憶管理系統
+│   ├── GoalManager.js           # 目標管理系統
 │   ├── env.json                 # OpenAI API 配置 (需自行設定)
+│   ├── agent_memory.db          # SQLite 數據庫文件 (自動生成)
 │   └── package.json             # 後端依賴管理
 │
 ├── 📂 ui-admin/                 # React 前端應用
@@ -194,7 +206,8 @@ gptrpg/
 |------|------|------|
 | **Node.js** | 16.19.0 | 執行環境 |
 | **WebSocket (ws)** | 8.13.0 | 即時通訊伺服器 |
-| **OpenAI** | 3.2.1 | AI API 整合 |
+| **OpenAI** | 4.x (latest) | AI API 整合 (已升級) |
+| **better-sqlite3** | latest | SQLite 數據庫 (記憶持久化) |
 | **extract-json-from-string** | 1.0.1 | JSON 解析工具 |
 | **nodemon** | 2.0.22 | 開發熱重載 |
 
@@ -296,6 +309,118 @@ gptrpg/
 
 ---
 
+## 🧠 記憶與目標系統
+
+### 四種記憶類型
+
+GPTRPG 實現了完整的記憶系統，讓 AI 代理能夠記住過去並做出更智能的決策：
+
+#### 1. 📝 短期記憶 (Short-term Memory)
+- **用途**: 記錄最近的行動和結果
+- **保留數量**: 最近 10 條（可配置）
+- **示例**: 「剛才向上移動了」、「種植了一棵樹」
+- **清理機制**: 自動清理過舊的記憶
+
+#### 2. 🧠 長期記憶 (Long-term Memory)
+- **用途**: 保存重要事件和經驗
+- **重要性評分**: 1-10 分（7 分以上才會注入到 prompt）
+- **示例**: 「發現了水源」、「完成了第一次收穫」
+- **持久化**: 永久保存在數據庫
+
+#### 3. 🗺️ 位置記憶 (Location Memory)
+- **用途**: 記錄探索過的位置和資源
+- **數據**: 座標、地形類型、訪問次數、資源信息
+- **功能**:
+  - 查找附近已探索位置
+  - 搜索特定資源位置（如床、水源）
+  - 追蹤訪問頻率
+
+#### 4. 🎮 互動記憶 (Interaction Memory)
+- **用途**: 記錄所有互動行為
+- **類型**: move, plant, harvest, sleep 等
+- **數據**: 互動類型、位置、結果、時間戳
+- **統計**: 可查詢特定互動的次數和歷史
+
+### 目標系統
+
+AI 代理可以設定和追蹤目標，使行為更有目的性：
+
+#### 目標屬性
+- **描述** (description): 目標的具體內容
+- **類型** (goal_type): survival, exploration, resource, social 等
+- **優先級** (priority): 1-10，決定目標執行順序
+- **狀態** (status): active, completed, failed, abandoned
+- **元數據** (metadata): 目標達成條件等額外信息
+
+#### 目標類型示例
+
+```javascript
+// 導航目標
+{
+  description: "到達安全的地方休息",
+  goal_type: "navigation",
+  priority: 8,
+  metadata: { target_location: { x: 7, y: 6 } }
+}
+
+// 睡眠目標
+{
+  description: "休息直到完全恢復",
+  goal_type: "sleep",
+  priority: 9
+}
+
+// 資源收集目標
+{
+  description: "收集 5 個種子",
+  goal_type: "resource",
+  priority: 7,
+  metadata: { resource_type: "seeds", target_amount: 5 }
+}
+```
+
+#### 自動目標達成檢測
+
+系統會自動檢查目標是否達成：
+- **導航目標**: 到達目標位置時自動完成
+- **睡眠目標**: 睡意歸零時完成
+- **資源目標**: 達到目標數量時完成
+
+完成目標後會自動記錄到長期記憶（重要性：9 分）。
+
+### 記憶注入到 Prompt
+
+每次決策時，AI 會收到包含記憶的增強 prompt：
+
+```
+# Recent Actions (短期記憶)
+1. Action: {"type":"move","direction":"up"} → Result: {"success":true}
+2. Action: {"type":"plant"} → Result: {"success":true}
+
+# Important Memories (長期記憶)
+1. [Importance: 9] 發現了水源在 (15, 20)
+2. [Importance: 8] 完成了第一次收穫
+
+# Known Nearby Locations (位置記憶)
+- (10, 10): grass, visited 3 times
+- (15, 20): water, visited 1 times
+
+# Current Goal
+**Goal**: 探索世界並了解周圍環境
+**Priority**: 5/10
+**Type**: exploration
+```
+
+### 數據持久化
+
+所有記憶和目標都保存在 SQLite 數據庫中：
+- **位置**: `agent/agent_memory.db`
+- **優點**: 代理重啟後記憶保留
+- **性能**: 使用索引優化查詢速度
+- **清理**: 自動清理過舊的短期記憶
+
+---
+
 ## 🎮 遊戲操作
 
 ### 鍵盤控制
@@ -326,17 +451,18 @@ gptrpg/
 ### ✅ 已完成功能
 
 - [x] 基礎 2D RPG 環境
-- [x] AI 代理與 OpenAI API 整合
+- [x] AI 代理與 OpenAI API 整合（升級到 v4）
 - [x] WebSocket 即時通訊
 - [x] 角色移動與碰撞檢測
 - [x] 植物種植與收穫系統
 - [x] 自由視角切換
+- [x] **四種記憶系統** - 短期、長期、位置、互動記憶
+- [x] **目標追蹤系統** - AI 可設定、追蹤和完成目標
+- [x] **SQLite 持久化** - 記憶和目標永久保存
 
 ### 🚧 開發中
 
-- [ ] **多代理支援** - 多個 AI 代理同時存在並互動
-- [ ] **代理記憶系統** - AI 能記住過去的行動與經驗
-- [ ] **代理目標系統** - 設定長期目標並規劃行動
+- [ ] **多代理支援** - 多個 AI 代理同時存在並互動（框架已就緒）
 
 ### 📅 未來計劃
 
