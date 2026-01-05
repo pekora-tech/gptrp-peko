@@ -73,6 +73,17 @@ class Agent {
             const { x, y } = this.getCharacterPosition();
             if(x === this.bedPosition.x && y === this.bedPosition.y) {
               this.sleepiness = 0;
+              console.log(`✅ ${this.agent_id} slept successfully, sleepiness reset to 0`);
+
+              // 通知後端 sleep 成功
+              this.socket.send(JSON.stringify({
+                type: 'sleep_completed',
+                agent_id: this.agent_id,
+                position: { x, y }
+              }));
+
+              // 標記剛剛睡過，跳過下次 sleepiness 增加
+              this.justSlept = true;
             } else {
               console.log(`Character ${this.agent_id} tried to sleep out of bed.`);
             }
@@ -174,9 +185,15 @@ class Agent {
 
   nextMove() {
     const characterPosition = this.getCharacterPosition();
-    // const bedP
     const surroundings = this.getSurroundings();
-    this.increaseSleepiness();
+
+    // 只在沒有剛睡過覺時才增加 sleepiness
+    if (!this.justSlept) {
+      this.increaseSleepiness();
+    } else {
+      // 重置標記
+      this.justSlept = false;
+    }
 
     this.socket.send(
       JSON.stringify({

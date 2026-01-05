@@ -158,6 +158,22 @@ wss.on('connection', function connection(ws) {
         }
       }
 
+      else if (parsedData.type === 'sleep_completed') {
+        // Handle sleep completion notification
+        const agentId = parsedData.agent_id;
+        console.log(`😴 Agent ${agentId} completed sleep at (${parsedData.position.x}, ${parsedData.position.y})`);
+
+        // 發送任務完成事件
+        if (agents[agentId]) {
+          agents[agentId].sendLog('task_update', {
+            description: `Successfully completed goto_bed: slept and rested`,
+            status: 'completed',
+            toolName: 'goto_bed',
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+
       else if (parsedData.type === 'recordInteraction') {
         // Optional: Handle interaction recording from client
         const agentId = parsedData.agent_id;
