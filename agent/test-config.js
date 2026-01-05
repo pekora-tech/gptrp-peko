@@ -142,7 +142,7 @@ function testConfigManager() {
     console.log('\n  Test 5: Get stats');
     configManager.saveConfig('test2', {
       agentId: 'test2',
-      llmProvider: { type: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-test' }
+      llmProvider: { type: 'openai', model: 'gpt-5-mini', apiKey: 'sk-test' }
     });
     const stats = configManager.getStats();
     console.log('    Total configs:', stats.total);

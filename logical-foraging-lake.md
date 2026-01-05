@@ -29,7 +29,7 @@ ProviderFactory (工廠模式)
   "agentId": "explorer_1",
   "llmProvider": {
     "type": "openai|ollama",
-    "model": "gpt-4o-mini | gemma3:12b",
+    "model": "gpt-5-mini | gemma3:12b",
     "temperature": 0.7
   },
   "personality": {
@@ -360,7 +360,7 @@ if (!agentConfig.llmProvider) {
        llmProvider: {
          type: "openai",
          apiKey: process.env.REACT_APP_OPENAI_API_KEY,
-         model: "gpt-4o-mini"
+         model: "gpt-5-mini"
        },
        personality: {
          behaviorTendencies: { exploration: 90 },
@@ -505,7 +505,7 @@ async function testOpenAI() {
   const provider = ProviderFactory.createProvider({
     type: 'openai',
     apiKey: 'sk-...',
-    model: 'gpt-4o-mini'
+    model: 'gpt-5-mini'
   });
 
   const health = await provider.healthCheck();
@@ -637,7 +637,7 @@ if (!agentConfig.llmProvider) {
   "comment": "Copy this file to env.json and fill in your credentials",
 
   "OPENAI_API_KEY": "sk-your-openai-key-here",
-  "OPENAI_MODEL": "gpt-4o-mini",
+  "OPENAI_MODEL": "gpt-5-mini",
 
   "OLLAMA_BASE_URL": "http://localhost:11434",
   "OLLAMA_DEFAULT_MODEL": "gemma3:12b",
@@ -659,7 +659,7 @@ if (!agentConfig.llmProvider) {
   "llmProvider": {
     "type": "openai",
     "apiKey": "sk-...",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5-mini",
     "temperature": 0.8
   },
   "personality": {

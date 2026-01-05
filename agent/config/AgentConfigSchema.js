@@ -256,7 +256,7 @@ export const DEFAULT_CONFIGS = {
     name: 'Explorer',
     llmProvider: {
       type: 'openai',
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-mini',
       temperature: 0.8
     },
     personality: {
@@ -320,7 +320,7 @@ export const DEFAULT_CONFIGS = {
     name: 'Social Agent',
     llmProvider: {
       type: 'openai',
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-mini',
       temperature: 0.7
     },
     personality: {
@@ -345,7 +345,7 @@ export const DEFAULT_CONFIGS = {
     name: 'Balanced Agent',
     llmProvider: {
       type: 'openai',
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-mini',
       temperature: 0.7
     },
     personality: {

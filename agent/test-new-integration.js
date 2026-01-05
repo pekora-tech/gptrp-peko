@@ -63,7 +63,7 @@ console.log('══════════════════════�
 console.log('  所有整合測試完成！');
 console.log('═══════════════════════════════════════════════════════');
 console.log('\n✅ 系統已成功整合，支援：');
-console.log('   - OpenAI Provider (gpt-4o-mini, gpt-4o, 等)');
+console.log('   - OpenAI Provider (gpt-5-mini, gpt-4o, 等)');
 console.log('   - Ollama Provider (本地模型)');
 console.log('   - 動態配置和切換');
 console.log('   - 向後兼容（使用 env.json 默認值）');

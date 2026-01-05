@@ -10,7 +10,7 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
     llmProvider: {
       type: 'openai',
       apiKey: '',
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-mini',
       baseURL: 'http://localhost:11434',
       temperature: 0.7,
       maxRetries: 3
@@ -50,7 +50,7 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
   const templates = {
     explorer: {
       name: 'Explorer',
-      llmProvider: { type: 'openai', model: 'gpt-4o-mini', temperature: 0.8 },
+      llmProvider: { type: 'openai', model: 'gpt-5-mini', temperature: 0.8 },
       personality: {
         behaviorTendencies: { exploration: 90, collection: 40, social: 30, defensive: 20 },
         traits: { cautious: 20, bold: 85, curious: 90, lazy: 10 },
@@ -70,7 +70,7 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
     },
     social: {
       name: 'Social',
-      llmProvider: { type: 'openai', model: 'gpt-4o-mini', temperature: 0.7 },
+      llmProvider: { type: 'openai', model: 'gpt-5-mini', temperature: 0.7 },
       personality: {
         behaviorTendencies: { exploration: 40, collection: 30, social: 95, defensive: 35 },
         traits: { cautious: 45, bold: 60, curious: 70, lazy: 25 },
@@ -79,7 +79,7 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
     },
     balanced: {
       name: 'Balanced',
-      llmProvider: { type: 'openai', model: 'gpt-4o-mini', temperature: 0.7 },
+      llmProvider: { type: 'openai', model: 'gpt-5-mini', temperature: 0.7 },
       personality: {
         behaviorTendencies: { exploration: 50, collection: 50, social: 50, defensive: 50 },
         traits: { cautious: 50, bold: 50, curious: 50, lazy: 50 },
@@ -151,7 +151,7 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
       llmProvider: {
         type: 'openai',
         apiKey: '',
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini',
         baseURL: 'http://localhost:11434',
         temperature: 0.7,
         maxRetries: 3
@@ -237,7 +237,7 @@ const AgentConfigPanel = ({ onCreateAgent, onClose }) => {
                   />
                   <input
                     type="text"
-                    placeholder="Model (e.g., gpt-4o-mini)"
+                    placeholder="Model (e.g., gpt-5-mini)"
                     value={config.llmProvider.model}
                     onChange={(e) => updateConfig('llmProvider.model', e.target.value)}
                   />
