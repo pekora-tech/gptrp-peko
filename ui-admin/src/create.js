@@ -44,9 +44,15 @@ export default function create() {
   // END: Add character to grid engine
 
   this.gridEngine.create(this.fieldMapTileMap, gridEngineConfig);
-  
+
   // START: Create agent
-  this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, agentId, {x: 6, y: 5});
+  const onAILog = (logData) => {
+    if (window.__AI_LOG_CALLBACK__) {
+      window.__AI_LOG_CALLBACK__(logData);
+    }
+  };
+
+  this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, agentId, {x: 6, y: 5}, onAILog);
   // END: Create agent
 
   // Create walkable tiles bridge

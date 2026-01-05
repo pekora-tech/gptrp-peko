@@ -3,10 +3,11 @@ import extract from "extract-json-from-string";
 import env from "./env.json" assert { type: "json" };
 
 class ServerAgent {
-  constructor(id, memoryManager, goalManager) {
+  constructor(id, memoryManager, goalManager, logCallback = null) {
     this.id = id;
     this.memoryManager = memoryManager;
     this.goalManager = goalManager;
+    this.logCallback = logCallback; // Callback for sending logs to client
 
     // Initialize OpenAI client with new SDK (v4+)
     this.openai = new OpenAI({
@@ -14,6 +15,22 @@ class ServerAgent {
     });
 
     this.model = env.OPENAI_MODEL || "gpt-4o-mini";
+  }
+
+  /**
+   * Send log message to client if callback is set
+   * @param {string} type - Log type (e.g., 'prompt', 'response', 'error')
+   * @param {Object} data - Log data
+   */
+  sendLog(type, data) {
+    if (this.logCallback) {
+      this.logCallback({
+        type,
+        timestamp: new Date().toISOString(),
+        agentId: this.id,
+        ...data
+      });
+    }
   }
 
   /**
@@ -119,11 +136,23 @@ class ServerAgent {
   async makeDecision(context) {
     const prompt = this.buildEnhancedPrompt(context);
 
+    // Log the prompt being sent to AI
+    this.sendLog('prompt', {
+      prompt: prompt,
+      model: this.model,
+      context: {
+        position: context.currentState?.position,
+        sleepiness: context.currentState?.sleepiness,
+        currentGoal: context.currentGoal?.description
+      }
+    });
+
     try {
       const response = await this.callOpenAI(prompt, 0);
       return response;
     } catch (error) {
       console.error("❌ Error making decision:", error);
+      this.sendLog('error', { error: error.message });
       return {
         action: { type: "wait" },
         reasoning: "Error in decision making"
@@ -260,7 +289,7 @@ The JSON response indicating your next action is:`;
     }
 
     try {
-      const response = await this.openai.chat.completions.create({
+      const apiOptions = {
         model: this.model,
         messages: [
           {
@@ -273,11 +302,25 @@ The JSON response indicating your next action is:`;
           }
         ],
         response_format: { type: "json_object" },  // Force JSON output
-        temperature: 0.7,
-      });
+      };
+
+      // Only add temperature for models that support it (not gpt-5-mini)
+      if (!this.model.includes('gpt-5-mini')) {
+        apiOptions.temperature = 0.7;
+      }
+
+      const response = await this.openai.chat.completions.create(apiOptions);
 
       const content = response.choices[0].message.content;
       console.log('🤖 OpenAI response:', content);
+
+      // Log the AI response
+      this.sendLog('response', {
+        response: content,
+        model: this.model,
+        attempt: attempt + 1,
+        usage: response.usage
+      });
 
       const responseObject = this.cleanAndProcess(content);
       if (responseObject && responseObject.action) {
@@ -285,6 +328,7 @@ The JSON response indicating your next action is:`;
       }
 
       console.warn("⚠️  Invalid response structure, retrying...");
+      this.sendLog('warning', { message: 'Invalid response structure, retrying...', attempt: attempt + 1 });
       return await this.callOpenAI(prompt, attempt + 1);
 
     } catch (error) {

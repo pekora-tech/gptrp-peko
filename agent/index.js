@@ -47,8 +47,16 @@ wss.on('connection', function connection(ws) {
         const memoryManager = new MemoryManager(db, agentId);
         const goalManager = new GoalManager(db, agentId);
 
+        // Create log callback to send AI logs to client
+        const logCallback = (logData) => {
+          ws.send(JSON.stringify({
+            type: 'ai_log',
+            data: logData
+          }));
+        };
+
         // Create the server agent with memory and goal capabilities
-        agents[agentId] = new ServerAgent(agentId, memoryManager, goalManager);
+        agents[agentId] = new ServerAgent(agentId, memoryManager, goalManager, logCallback);
 
         console.log(`✓ Agent ${agentId} created with memory and goal systems`);
 

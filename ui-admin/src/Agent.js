@@ -1,19 +1,20 @@
 class Agent {
-  constructor(gridEngine, fieldMapTileMap, agent_id, bedPosition = { x: 3, y: 3 }) {
+  constructor(gridEngine, fieldMapTileMap, agent_id, bedPosition = { x: 3, y: 3 }, onAILog = null) {
     this.gridEngine = gridEngine;
     this.fieldMapTileMap = fieldMapTileMap;
     this.agent_id = agent_id;
     this.sleepiness = 0;
     this.bedPosition = bedPosition;
-    
+    this.onAILog = onAILog; // Callback for AI logs
+
     const socket = new WebSocket('ws://localhost:8080');
     this.socket = socket;
 
     this.socket.addEventListener('open', () => {
       this.socket.send(JSON.stringify({ type: 'create_agent', agent_id }));
     });
-    
-    this.initializeServerListener();    
+
+    this.initializeServerListener();
     this.initializeMovementStoppedListener();
   }
   
@@ -24,6 +25,14 @@ class Agent {
 
       if(res.type === 'error') {
         console.error(res.message)
+        return;
+      }
+
+      // Handle AI logs
+      if(res.type === 'ai_log') {
+        if (this.onAILog) {
+          this.onAILog(res.data);
+        }
         return;
       }
 

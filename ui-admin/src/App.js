@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Phaser from 'phaser';
 import './App.css';
 import GridEngine from "grid-engine";
+import AIConsole from './AIConsole';
 
 import preload from './preload';
 import create from './create';
@@ -9,8 +10,14 @@ import update from './update';
 
 function App() {
   const gameRef = useRef(null);
+  const [aiLogs, setAiLogs] = useState([]);
 
   useEffect(() => {
+    // Set up global callback for AI logs
+    window.__AI_LOG_CALLBACK__ = (logData) => {
+      setAiLogs((prevLogs) => [...prevLogs, logData]);
+    };
+
     if (gameRef.current === null) {
       gameRef.current = new Phaser.Game({
         title: "GPTRPG",
@@ -44,9 +51,19 @@ function App() {
         backgroundColor: "#48C4F8",
       });
     }
+
+    // Cleanup on unmount
+    return () => {
+      delete window.__AI_LOG_CALLBACK__;
+    };
   }, []);
 
-  return <div id="game"></div>;
+  return (
+    <>
+      <div id="game"></div>
+      <AIConsole logs={aiLogs} />
+    </>
+  );
 }
 
 export default App;
