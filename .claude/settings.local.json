@@ -9,7 +9,8 @@
       "Bash(node test-providers.js:*)",
       "Bash(node test-config.js:*)",
       "Bash(node test-integration.js:*)",
-      "Bash(node test-new-integration.js:*)"
+      "Bash(node test-new-integration.js:*)",
+      "Bash(ls:*)"
     ]
   }
 }
