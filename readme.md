@@ -68,31 +68,62 @@ AI 代理會根據周圍環境、內部狀態（如睡意、飢餓等）自主�
 ## 🏗️ 系統架構
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        GPTRPG 系統                           │
-├─────────────────────────┬───────────────────────────────────┤
-│                         │                                   │
-│    前端 (ui-admin)      │      後端 (agent)                 │
-│                         │                                   │
-│  ┌──────────────────┐   │   ┌──────────────────┐            │
-│  │  React App       │   │   │  WebSocket       │            │
-│  │  (Port 3000)     │◄──┼──►│  Server          │            │
-│  └──────────────────┘   │   │  (Port 8080)     │            │
-│           │              │   └────────┬─────────┘            │
-│           ▼              │            │                      │
-│  ┌──────────────────┐   │            ▼                      │
-│  │  Phaser Engine   │   │   ┌──────────────────┐            │
-│  │  + Grid Engine   │   │   │  ServerAgent     │            │
-│  └──────────────────┘   │   │  管理系統        │            │
-│           │              │   └────────┬─────────┘            │
-│           ▼              │            │                      │
-│  ┌──────────────────┐   │            ▼                      │
-│  │  Tiled Map       │   │   ┌──────────────────┐            │
-│  │  Renderer        │   │   │  OpenAI API      │            │
-│  └──────────────────┘   │   │  (GPT-3.5/5)     │            │
-│                         │   └──────────────────┘            │
-└─────────────────────────┴───────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                          GPTRPG 系統                                 │
+├─────────────────────────┬───────────────────────────────────────────┤
+│                         │                                           │
+│    前端 (ui-admin)      │      後端 (agent)                         │
+│                         │                                           │
+│  ┌──────────────────┐   │   ┌──────────────────┐                    │
+│  │  React App       │   │   │  WebSocket       │                    │
+│  │  (Port 3000)     │◄──┼──►│  Server          │                    │
+│  └──────────────────┘   │   │  (Port 8080)     │                    │
+│           │              │   └────────┬─────────┘                    │
+│           ▼              │            │                              │
+│  ┌──────────────────┐   │            ▼                              │
+│  │  Phaser Engine   │   │   ┌──────────────────┐                    │
+│  │  + Grid Engine   │   │   │  ServerAgent     │                    │
+│  └──────────────────┘   │   │  核心決策系統    │                    │
+│           │              │   └────────┬─────────┘                    │
+│           ▼              │            │                              │
+│  ┌──────────────────┐   │   ┌────────┴─────────┐                    │
+│  │  Tiled Map       │   │   │                  │                    │
+│  │  Renderer        │   │   ▼                  ▼                    │
+│  └──────────────────┘   │   ┌──────────┐  ┌──────────┐              │
+│                         │   │ Memory   │  │  Goal    │              │
+│                         │   │ Manager  │  │ Manager  │              │
+│                         │   └────┬─────┘  └────┬─────┘              │
+│                         │        │             │                    │
+│                         │        └──────┬──────┘                    │
+│                         │               ▼                           │
+│                         │        ┌─────────────┐                    │
+│                         │        │  Database   │                    │
+│                         │        │  (SQLite)   │                    │
+│                         │        └─────────────┘                    │
+│                         │               │                           │
+│                         │               ▼                           │
+│                         │        ┌─────────────┐                    │
+│                         │        │  OpenAI API │                    │
+│                         │        │(GPT-4o-mini)│                    │
+│                         │        └─────────────┘                    │
+└─────────────────────────┴───────────────────────────────────────────┘
 ```
+
+### 核心組件說明
+
+#### 後端組件
+- **WebSocket Server**: 處理前後端即時通訊
+- **ServerAgent**: 核心 AI 決策引擎，整合記憶和目標系統
+- **MemoryManager**: 管理四種記憶類型（短期、長期、位置、互動）
+- **GoalManager**: 追蹤和管理 AI 代理的目標
+- **Database**: SQLite 持久化層，保存記憶和目標數據
+- **OpenAI API**: 提供智能決策能力
+
+#### 前端組件
+- **React App**: 主應用框架
+- **Phaser Engine**: 2D 遊戲渲染引擎
+- **Grid Engine**: 網格移動和碰撞系統
+- **Tiled Map Renderer**: 地圖渲染器
 
 ---
 
@@ -115,6 +146,13 @@ cd gptrpg
 
 #### 2️⃣ 配置 OpenAI API Key
 
+複製範例配置文件並編輯：
+
+```bash
+cd agent
+cp env.example.json env.json
+```
+
 編輯 `agent/env.json` 檔案，填入你的 OpenAI API 金鑰：
 
 ```json
@@ -128,7 +166,15 @@ cd gptrpg
 }
 ```
 
-> ⚠️ **安全提醒**: 請勿將 API 金鑰提交到版本控制系統！建議將 `env.json` 加入 `.gitignore`
+**配置說明**：
+- `OPENAI_API_KEY`: 你的 OpenAI API 金鑰
+- `OPENAI_MODEL`: 使用的模型（推薦 `gpt-4o-mini` 性價比高）
+- `MEMORY_SHORT_TERM_SIZE`: 短期記憶保留數量（預設 10 條）
+- `MEMORY_LONG_TERM_THRESHOLD`: 長期記憶重要性閾值（7-10 分的記憶會被保留）
+- `MEMORY_LOCATION_RADIUS`: 位置記憶搜索半徑
+- `DATABASE_PATH`: SQLite 數據庫文件路徑
+
+> ⚠️ **安全提醒**: `env.json` 已加入 `.gitignore`，請勿將 API 金鑰提交到版本控制系統！
 
 #### 3️⃣ 安裝依賴
 
@@ -163,12 +209,17 @@ http://localhost:3000
 gptrpg/
 ├── 📂 agent/                    # AI 代理後端服務
 │   ├── index.js                 # WebSocket 伺服器入口
-│   ├── ServerAgent.js           # AI 代理核心邏輯
-│   ├── database.js              # SQLite 數據庫管理
-│   ├── MemoryManager.js         # 記憶管理系統
-│   ├── GoalManager.js           # 目標管理系統
+│   ├── ServerAgent.js           # AI 代理核心邏輯（整合記憶和目標）
+│   ├── database.js              # SQLite 數據庫封裝
+│   ├── MemoryManager.js         # 記憶管理系統（四種記憶類型）
+│   ├── GoalManager.js           # 目標管理系統（目標追蹤與達成檢測）
 │   ├── env.json                 # OpenAI API 配置 (需自行設定)
+│   ├── env.example.json         # 配置範例文件
 │   ├── agent_memory.db          # SQLite 數據庫文件 (自動生成)
+│   ├── test-database.js         # 數據庫測試
+│   ├── test-memory.js           # 記憶系統測試
+│   ├── test-goals.js            # 目標系統測試
+│   ├── test-integration.js      # 整合測試
 │   └── package.json             # 後端依賴管理
 │
 ├── 📂 ui-admin/                 # React 前端應用
@@ -179,11 +230,13 @@ gptrpg/
 │   │   │   └── v2.png           # 環境圖集
 │   │   ├── create.js            # Phaser 場景初始化
 │   │   ├── update.js            # 遊戲主循環更新邏輯
+│   │   ├── Agent.js             # 前端 AI 代理控制器
 │   │   └── App.js               # React 主應用組件
 │   └── package.json             # 前端依賴管理
 │
 ├── package.json                 # 根專案配置
 ├── README.md                    # 專案說明文件
+├── rosy-tinkering-giraffe.md    # 記憶與目標系統實現計劃
 └── map.png                      # 地圖預覽圖
 ```
 
@@ -419,6 +472,90 @@ AI 代理可以設定和追蹤目標，使行為更有目的性：
 - **性能**: 使用索引優化查詢速度
 - **清理**: 自動清理過舊的短期記憶
 
+### 數據庫架構
+
+```sql
+-- 記憶表 (四種記憶類型統一存儲)
+CREATE TABLE memories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_id TEXT NOT NULL,
+  memory_type TEXT NOT NULL,  -- 'short_term', 'long_term', 'location', 'interaction'
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  content TEXT NOT NULL,       -- JSON 格式的記憶內容
+  importance INTEGER DEFAULT 1, -- 1-10，重要性評分
+  embedding TEXT               -- 可選：向量嵌入（未來用於語義搜索）
+);
+
+-- 目標表
+CREATE TABLE goals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_id TEXT NOT NULL,
+  goal_type TEXT NOT NULL,     -- 'survival', 'exploration', 'social', etc.
+  description TEXT NOT NULL,   -- 目標描述
+  status TEXT DEFAULT 'active', -- 'active', 'completed', 'failed', 'abandoned'
+  priority INTEGER DEFAULT 5,  -- 1-10 優先級
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME,
+  metadata TEXT                -- JSON 格式的額外數據
+);
+
+-- 位置探索表
+CREATE TABLE explored_locations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_id TEXT NOT NULL,
+  x INTEGER NOT NULL,
+  y INTEGER NOT NULL,
+  tile_type TEXT,
+  resources TEXT,              -- JSON: 該位置的資源
+  visit_count INTEGER DEFAULT 1,
+  first_visited DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_visited DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(agent_id, x, y)
+);
+
+-- 互動歷史表
+CREATE TABLE interactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_id TEXT NOT NULL,
+  interaction_type TEXT NOT NULL, -- 'plant', 'harvest', 'sleep', 'move'
+  location_x INTEGER,
+  location_y INTEGER,
+  result TEXT,                 -- JSON: 互動結果
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## 🧪 測試系統
+
+階段 1 實現了完整的測試套件，確保系統穩定性：
+
+### 執行測試
+
+```bash
+cd agent
+
+# 測試數據庫連接和基礎操作
+node test-database.js
+
+# 測試記憶系統（四種記憶類型）
+node test-memory.js
+
+# 測試目標系統（創建、完成、達成檢測）
+node test-goals.js
+
+# 測試完整整合流程
+node test-integration.js
+```
+
+### 測試覆蓋範圍
+
+- ✅ **數據庫測試** - 連接、CRUD 操作、索引
+- ✅ **記憶系統測試** - 短期、長期、位置、互動記憶的讀寫
+- ✅ **目標系統測試** - 目標創建、狀態變更、達成檢測
+- ✅ **整合測試** - 端到端決策流程（記憶 → 目標 → 決策）
+
 ---
 
 ## 🎮 遊戲操作
@@ -448,49 +585,96 @@ AI 代理可以設定和追蹤目標，使行為更有目的性：
 
 ## 🛣️ 開發路線圖
 
-### ✅ 已完成功能
+### ✅ 階段 1：OpenAI 主角系統（已完成）
 
-- [x] 基礎 2D RPG 環境
-- [x] AI 代理與 OpenAI API 整合（升級到 v4）
-- [x] WebSocket 即時通訊
-- [x] 角色移動與碰撞檢測
-- [x] 植物種植與收穫系統
-- [x] 自由視角切換
-- [x] **四種記憶系統** - 短期、長期、位置、互動記憶
-- [x] **目標追蹤系統** - AI 可設定、追蹤和完成目標
-- [x] **SQLite 持久化** - 記憶和目標永久保存
+- [x] **基礎設施**
+  - [x] SQLite 數據庫設置與封裝
+  - [x] OpenAI SDK v4 升級與整合
+  - [x] WebSocket 即時通訊
+  - [x] 基礎 2D RPG 環境（Phaser + Grid Engine）
 
-### 🚧 開發中
+- [x] **四種記憶系統**
+  - [x] 短期記憶（最近行動追蹤）
+  - [x] 長期記憶（重要事件保存）
+  - [x] 位置記憶（地圖探索記錄）
+  - [x] 互動記憶（行為歷史追蹤）
 
-- [ ] **多代理支援** - 多個 AI 代理同時存在並互動（框架已就緒）
+- [x] **目標追蹤系統**
+  - [x] 目標創建與管理
+  - [x] 目標優先級排序
+  - [x] 自動目標達成檢測
+  - [x] 目標完成記錄到長期記憶
 
-### 📅 未來計劃
+- [x] **系統整合**
+  - [x] 記憶注入到 AI Prompt
+  - [x] 目標驅動決策系統
+  - [x] SQLite 持久化存儲
+  - [x] 單元測試與整合測試
 
-#### 🎯 代理能力擴展
+### 🚧 階段 2：標籤解析架構（計劃中）
+
+基於 [rosy-tinkering-giraffe.md](rosy-tinkering-giraffe.md) 的設計，為未來的 Ollama NPC 系統準備：
+
+- [ ] **標籤系統設計**
+  - [ ] XML-like 標籤語法規範（`<action type="move" direction="up" />`）
+  - [ ] 標籤解析器實現（正則提取）
+  - [ ] 容錯機制（即使格式不完美也能提取）
+
+- [ ] **LLM Provider 抽象層**
+  - [ ] 支持 JSON + Tag 雙模式輸出
+  - [ ] OpenAI Provider（JSON 模式）
+  - [ ] 為 Ollama Provider 預留接口
+  - [ ] 向後兼容性保證
+
+### 📅 階段 3：Ollama NPC 系統（未來擴展）
+
+- [ ] **Ollama 整合**
+  - [ ] Ollama Provider 實現
+  - [ ] Tag-based 輸出解析
+  - [ ] 本地模型調用優化
+
+- [ ] **NPC 代理系統**
+  - [ ] 簡化版記憶系統（適合 NPC）
+  - [ ] 動物人格設定（狗、牛、雞等）
+  - [ ] NPC 行為模式（grazing, barking, following）
+  - [ ] 多代理管理系統
+
+- [ ] **前端多角色支持**
+  - [ ] 多 NPC 同時渲染
+  - [ ] NPC 思考過程顯示
+  - [ ] 玩家-NPC 互動系統
+
+### 🎯 其他未來計劃
+
+#### 代理能力擴展
 - [ ] 喝水系統 (Drink)
 - [ ] 進食系統 (Eat)
 - [ ] 種植食物 (Plant Food)
 - [ ] 收穫食物 (Harvest Food)
 - [ ] 創作系統 (Write Poem, Paint, etc.)
 
-#### 📊 代理狀態系統
+#### 代理狀態系統
 - [ ] 飢餓度 (Hunger)
 - [ ] 口渴度 (Thirst)
 - [ ] 健康值 (Health)
 - [ ] 情緒系統 (Mood)
 - [ ] 社交需求 (Social Needs)
 
-#### 🎒 遊戲系統
+#### 遊戲系統
 - [ ] 代理庫存系統
 - [ ] 物品交互系統
 - [ ] 建築建造系統
 - [ ] 天氣與日夜循環
 
-#### 🌐 多人與部署
+#### 多人與部署
 - [ ] 人類玩家控制的角色
 - [ ] 多人線上互動
 - [ ] 網頁部署版本
 - [ ] UI 增強（代理狀態面板、對話系統等）
+
+---
+
+> 📖 **詳細實現計劃**: 請參考 [rosy-tinkering-giraffe.md](rosy-tinkering-giraffe.md) 查看完整的記憶與目標系統實現計劃
 
 ---
 
@@ -534,6 +718,69 @@ const response = await openai.createChatCompletion({
 ### Q5: 如何新增更多 AI 代理能力？
 
 **A**: 修改 `agent/ServerAgent.js` 的 prompt，在 `Capabilities` 區塊新增能力描述，並在前端對應處理新的 action type。
+
+### Q6: 記憶系統如何運作？
+
+**A**: AI 代理擁有四種記憶：
+1. **短期記憶**: 保留最近 10 個行動（可在 `env.json` 配置）
+2. **長期記憶**: 保存重要性 ≥7 的事件，永久保留
+3. **位置記憶**: 記錄探索過的座標、地形和資源
+4. **互動記憶**: 追蹤所有互動行為（move, plant, sleep 等）
+
+每次 AI 做決策時，相關記憶會自動注入到 prompt 中，讓 AI 能夠基於過去經驗做出更智能的決策。
+
+### Q7: 如何查看 AI 的記憶和目標？
+
+**A**: 目前記憶和目標保存在 SQLite 數據庫中。你可以：
+
+1. 使用 SQLite 工具查看：
+```bash
+cd agent
+sqlite3 agent_memory.db
+
+# 查看所有記憶
+SELECT * FROM memories;
+
+# 查看當前目標
+SELECT * FROM goals WHERE status = 'active';
+
+# 查看探索過的位置
+SELECT * FROM explored_locations;
+```
+
+2. 運行測試腳本查看系統運作：
+```bash
+node test-memory.js    # 測試記憶系統
+node test-goals.js     # 測試目標系統
+```
+
+### Q8: AI 代理的記憶會一直增長嗎？會不會影響性能？
+
+**A**: 不會無限增長：
+- **短期記憶**: 自動保留最新的 N 條（預設 10 條）
+- **長期記憶**: 只保存重要性高的事件（≥7 分）
+- **位置記憶**: 使用索引優化，查詢速度 <50ms
+- **數據庫**: 可定期清理過舊的記憶（未來功能）
+
+目前的設計可以支持數千條記憶而不影響性能。
+
+### Q9: 如何重置 AI 代理的記憶？
+
+**A**: 刪除數據庫文件即可：
+```bash
+cd agent
+rm agent_memory.db
+```
+
+下次啟動時會自動創建新的空數據庫。
+
+### Q10: 階段 2 和 3 什麼時候實現？
+
+**A**:
+- **階段 2**（標籤解析架構）: 計劃中，為支持 Ollama 本地模型準備
+- **階段 3**（NPC 系統）: 未來擴展，實現多個 AI 動物 NPC
+
+詳細計劃請參考 [rosy-tinkering-giraffe.md](rosy-tinkering-giraffe.md)
 
 ---
 
