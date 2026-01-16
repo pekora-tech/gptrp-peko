@@ -44,9 +44,24 @@ export default function create() {
   // END: Add character to grid engine
 
   this.gridEngine.create(this.fieldMapTileMap, gridEngineConfig);
-  
+
   // START: Create agent
-  this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, agentId, {x: 6, y: 5});
+  const onAILog = (logData) => {
+    if (window.__AI_LOG_CALLBACK__) {
+      window.__AI_LOG_CALLBACK__(logData);
+    }
+  };
+
+  // === 改造點：使用完整的 agentConfig ===
+  const agentConfig = {
+    agentId: agentId,
+    initialState: {
+      bedPosition: { x: 6, y: 5 }
+    }
+    // llmProvider 會使用 env.json 的默認配置（向後兼容）
+  };
+
+  this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, agentId, agentConfig, onAILog);
   // END: Create agent
 
   // Create walkable tiles bridge

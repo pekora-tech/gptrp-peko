@@ -1,19 +1,38 @@
 class Agent {
-  constructor(gridEngine, fieldMapTileMap, agent_id, bedPosition = { x: 3, y: 3 }) {
+  constructor(gridEngine, fieldMapTileMap, agent_id, agentConfig, onAILog = null) {
     this.gridEngine = gridEngine;
     this.fieldMapTileMap = fieldMapTileMap;
     this.agent_id = agent_id;
+
+    // === 改造點：接受完整配置 ===
+    this.agentConfig = agentConfig;
+    this.bedPosition = agentConfig.initialState?.bedPosition || { x: 3, y: 3 };
+
     this.sleepiness = 0;
-    this.bedPosition = bedPosition;
-    
+    this.onAILog = onAILog; // Callback for AI logs
+
     const socket = new WebSocket('ws://localhost:8080');
     this.socket = socket;
 
     this.socket.addEventListener('open', () => {
-      this.socket.send(JSON.stringify({ type: 'create_agent', agent_id }));
+      // === 改造點：發送配置到後端 ===
+      this.socket.send(JSON.stringify({
+        type: 'create_agent',
+        agent_id: agent_id,
+        config: agentConfig  // 傳送完整配置
+      }));
+
+      // Record bed location to memory after agent is created
+      setTimeout(() => {
+        this.socket.send(JSON.stringify({
+          type: 'record_bed_location',
+          agent_id: agent_id,
+          bed_location: this.bedPosition
+        }));
+      }, 1000);
     });
-    
-    this.initializeServerListener();    
+
+    this.initializeServerListener();
     this.initializeMovementStoppedListener();
   }
   
@@ -24,6 +43,22 @@ class Agent {
 
       if(res.type === 'error') {
         console.error(res.message)
+        return;
+      }
+
+      // Handle AI logs
+      if(res.type === 'ai_log') {
+        if (this.onAILog) {
+          this.onAILog(res.data);
+        }
+        return;
+      }
+
+      // Handle task updates
+      if(res.type === 'task_update') {
+        if (window.__TASK_UPDATE_CALLBACK__) {
+          window.__TASK_UPDATE_CALLBACK__(res.data);
+        }
         return;
       }
 
@@ -47,6 +82,17 @@ class Agent {
             const { x, y } = this.getCharacterPosition();
             if(x === this.bedPosition.x && y === this.bedPosition.y) {
               this.sleepiness = 0;
+              console.log(`✅ ${this.agent_id} slept successfully, sleepiness reset to 0`);
+
+              // 通知後端 sleep 成功
+              this.socket.send(JSON.stringify({
+                type: 'sleep_completed',
+                agent_id: this.agent_id,
+                position: { x, y }
+              }));
+
+              // 標記剛剛睡過，跳過下次 sleepiness 增加
+              this.justSlept = true;
             } else {
               console.log(`Character ${this.agent_id} tried to sleep out of bed.`);
             }
@@ -148,9 +194,15 @@ class Agent {
 
   nextMove() {
     const characterPosition = this.getCharacterPosition();
-    // const bedP
     const surroundings = this.getSurroundings();
-    this.increaseSleepiness();
+
+    // 只在沒有剛睡過覺時才增加 sleepiness
+    if (!this.justSlept) {
+      this.increaseSleepiness();
+    } else {
+      // 重置標記
+      this.justSlept = false;
+    }
 
     this.socket.send(
       JSON.stringify({

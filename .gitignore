@@ -2,3 +2,8 @@ env.json
 out.txt
 
 **/node_modules
+
+# macOS
+.DS_Store
+.DS_Store
+.DS_Store
